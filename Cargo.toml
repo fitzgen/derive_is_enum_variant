@@ -1,0 +1,25 @@
+[package]
+authors = ["Nick Fitzgerald <fitzgen@gmail.com>"]
+categories = ["rust-patterns"]
+description = "Automatically derives `is_dog` and `is_cat` methods for `enum Pet { Dog, Cat }`."
+documentation = "https://docs.rs/derive_is_enum_variant"
+keywords = ["derive", "is", "enum", "variant"]
+license = "Apache-2.0/MIT"
+name = "derive_is_enum_variant"
+readme = "./README.md"
+repository = "https://github.com/fitzgen/derive_is_enum_variant"
+version = "0.1.0"
+[badges.travis-ci]
+repository = "fitzgen/derive_is_enum_variant"
+
+[dependencies]
+heck = "0.3.0"
+quote = "0.3.15"
+syn = "0.11.11"
+
+[dev-dependencies]
+diff = "0.1.10"
+
+[lib]
+path = "./src/lib.rs"
+proc_macro = true
