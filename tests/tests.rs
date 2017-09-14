@@ -8,12 +8,17 @@
 extern crate derive_is_enum_variant;
 extern crate diff;
 
+use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::process::Command;
 
 #[test]
 fn cargo_readme_up_to_date() {
+    if env::var("CI").is_ok() {
+        return;
+    }
+
     let expected = Command::new("cargo")
         .arg("readme")
         .current_dir(env!("CARGO_MANIFEST_DIR"))
