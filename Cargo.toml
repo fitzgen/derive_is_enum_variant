@@ -8,7 +8,7 @@ license = "Apache-2.0/MIT"
 name = "derive_is_enum_variant"
 readme = "./README.md"
 repository = "https://github.com/fitzgen/derive_is_enum_variant"
-version = "0.1.0"
+version = "0.1.1"
 [badges.travis-ci]
 repository = "fitzgen/derive_is_enum_variant"
 
