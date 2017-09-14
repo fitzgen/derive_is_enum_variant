@@ -228,7 +228,9 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
 
             quote! {
                 #[doc = #doc]
+                #[inline]
                 #[allow(unreachable_patterns)]
+                #[allow(dead_code)]
                 pub fn #predicate_name(&self) -> bool {
                     match *self {
                         #name :: #ident #data_tokens => true,
