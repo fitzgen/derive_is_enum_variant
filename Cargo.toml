@@ -9,13 +9,15 @@ name = "derive_is_enum_variant"
 readme = "./README.md"
 repository = "https://github.com/fitzgen/derive_is_enum_variant"
 version = "0.1.1"
+
 [badges.travis-ci]
 repository = "fitzgen/derive_is_enum_variant"
 
 [dependencies]
 heck = "0.3.0"
-quote = "0.3.15"
-syn = "0.11.11"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "1", features = ["extra-traits"] }
 
 [dev-dependencies]
 diff = "0.1.10"

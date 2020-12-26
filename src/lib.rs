@@ -109,15 +109,8 @@ use proc_macro::TokenStream;
 
 #[proc_macro_derive(is_enum_variant, attributes(is_enum_variant))]
 pub fn derive_is_enum_variant(tokens: TokenStream) -> TokenStream {
-    let source = tokens.to_string();
-
-    let ast = syn::parse_derive_input(&source).expect("should parse input tokens into AST");
-
-    let expanded = expand_derive_is_enum_variant(&ast);
-
-    expanded
-        .parse()
-        .expect("should parse expanded output source into tokens")
+    let ast = syn::parse(tokens).expect("should parse input tokens into AST");
+    expand_derive_is_enum_variant(&ast)
 }
 
 enum PredicateConfig {
@@ -127,29 +120,32 @@ enum PredicateConfig {
 }
 
 impl PredicateConfig {
-    fn join(self, meta: &syn::MetaItem) -> Self {
-        match *meta {
-            syn::MetaItem::Word(ref ident) if ident.to_string() == "skip" => match self {
+    fn join(self, meta: &syn::Meta) -> Self {
+        match meta {
+            syn::Meta::Path(path) if path.is_ident("skip") => match self {
                 PredicateConfig::None | PredicateConfig::Skip => PredicateConfig::Skip,
                 PredicateConfig::Name(_) => panic!(
                     "Cannot both `#[is_enum_variant(skip)]` and \
                      `#[is_enum_variant(name = \"..\")]`"
                 ),
             },
-            syn::MetaItem::NameValue(ref ident, syn::Lit::Str(ref s, _))
-                if ident.to_string() == "name" =>
-            {
-                if !s.chars().all(|c| match c {
-                    '_' | 'a'...'z' | 'A'...'Z' | '0'...'9' => true,
-                    _ => false,
-                }) {
+            syn::Meta::NameValue(syn::MetaNameValue {
+                path,
+                lit: syn::Lit::Str(s),
+                ..
+            }) if path.is_ident("name") => {
+                let value = s.value();
+                if !value
+                    .chars()
+                    .all(|c| matches!(c, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9'))
+                {
                     panic!(
                         "#[is_enum_variant(name = \"..\")] must be provided \
                          a valid identifier"
                     )
                 }
                 match self {
-                    PredicateConfig::None => PredicateConfig::Name(s.to_string()),
+                    PredicateConfig::None => PredicateConfig::Name(value),
                     PredicateConfig::Skip => panic!(
                         "Cannot both `#[is_enum_variant(skip)]` and \
                          `#[is_enum_variant(name = \"..\")]`"
@@ -160,7 +156,7 @@ impl PredicateConfig {
                     ),
                 }
             }
-            ref otherwise => panic!(
+            otherwise => panic!(
                 "Unknown item inside `#[is_enum_variant(..)]`: {:?}",
                 otherwise
             ),
@@ -170,42 +166,47 @@ impl PredicateConfig {
 
 impl<'a> From<&'a Vec<syn::Attribute>> for PredicateConfig {
     fn from(attrs: &'a Vec<syn::Attribute>) -> Self {
-        let our_attr = attrs.iter().find(|a| a.name() == "is_enum_variant");
-        our_attr.map_or(PredicateConfig::None, |attr| match attr.value {
-            syn::MetaItem::List(_, ref metas) => metas
-                .iter()
-                .map(|m| match *m {
-                    syn::NestedMetaItem::MetaItem(ref m) => m,
-                    syn::NestedMetaItem::Literal(_) => panic!("Invalid #[is_enum_variant] item"),
-                })
-                .fold(PredicateConfig::None, PredicateConfig::join),
-            _ => panic!(
-                "#[is_enum_variant] must be used with name/value pairs, like \
-                 #[is_enum_variant(name = \"..\")]"
-            ),
+        let our_attr = attrs.iter().find(|a| a.path.is_ident("is_enum_variant"));
+        our_attr.map_or(PredicateConfig::None, |attr| {
+            match &attr.parse_meta().unwrap() {
+                syn::Meta::List(list) => list
+                    .nested
+                    .iter()
+                    .map(|meta| match meta {
+                        syn::NestedMeta::Meta(meta) => meta,
+                        syn::NestedMeta::Lit(_) => {
+                            panic!("Invalid #[is_enum_variant] item")
+                        }
+                    })
+                    .fold(PredicateConfig::None, PredicateConfig::join),
+                _ => panic!(
+                    "#[is_enum_variant] must be used with name/value pairs, like \
+                    #[is_enum_variant(name = \"..\")]"
+                ),
+            }
         })
     }
 }
 
-fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
-    let variants = match ast.body {
-        syn::Body::Struct(_) => panic!("#[derive(is_enum_variant)] can only be used with enums"),
-        syn::Body::Enum(ref variants) => variants,
+fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> TokenStream {
+    let data_enum = match &ast.data {
+        syn::Data::Enum(data_enum) => data_enum,
+        _ => panic!("#[derive(is_enum_variant)] can only be used with enums"),
     };
 
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let predicates = variants.iter().map(
+    let predicates = data_enum.variants.iter().map(
         |&syn::Variant {
-             ref ident,
-             ref data,
              ref attrs,
+             ref ident,
+             ref fields,
              ..
          }| {
             let cfg = attrs.into();
             if let PredicateConfig::Skip = cfg {
-                return quote!{};
+                return quote! {};
             }
 
             let variant_name = ident.to_string();
@@ -218,12 +219,12 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
                 name.push_str(&variant_name.to_snake_case());
                 name
             };
-            let predicate_name = quote::Ident::new(predicate_name);
+            let fn_name = syn::Ident::new(&predicate_name, proc_macro2::Span::call_site());
 
-            let data_tokens = match *data {
-                syn::VariantData::Struct(..) => quote! { { .. } },
-                syn::VariantData::Tuple(..) => quote! { (..) },
-                syn::VariantData::Unit => quote!{},
+            let data_tokens = match *fields {
+                syn::Fields::Named(..) => quote! { { .. } },
+                syn::Fields::Unnamed(..) => quote! { (..) },
+                syn::Fields::Unit => quote! {},
             };
 
             quote! {
@@ -231,7 +232,7 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
                 #[inline]
                 #[allow(unreachable_patterns)]
                 #[allow(dead_code)]
-                pub fn #predicate_name(&self) -> bool {
+                pub fn #fn_name(&self) -> bool {
                     match *self {
                         #name :: #ident #data_tokens => true,
                         _ => false,
@@ -241,12 +242,12 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
         },
     );
 
-    quote! {
+    TokenStream::from(quote! {
         /// # `enum` Variant Predicates
         impl #impl_generics #name #ty_generics #where_clause {
             #(
                 #predicates
             )*
         }
-    }
+    })
 }
