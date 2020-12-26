@@ -140,7 +140,7 @@ impl PredicateConfig {
                 if ident.to_string() == "name" =>
             {
                 if !s.chars().all(|c| match c {
-                    '_' | 'a'...'z' | 'A'...'Z' | '0'...'9' => true,
+                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => true,
                     _ => false,
                 }) {
                     panic!(
@@ -205,7 +205,7 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
          }| {
             let cfg = attrs.into();
             if let PredicateConfig::Skip = cfg {
-                return quote!{};
+                return quote! {};
             }
 
             let variant_name = ident.to_string();
@@ -223,7 +223,7 @@ fn expand_derive_is_enum_variant(ast: &syn::DeriveInput) -> quote::Tokens {
             let data_tokens = match *data {
                 syn::VariantData::Struct(..) => quote! { { .. } },
                 syn::VariantData::Tuple(..) => quote! { (..) },
-                syn::VariantData::Unit => quote!{},
+                syn::VariantData::Unit => quote! {},
             };
 
             quote! {

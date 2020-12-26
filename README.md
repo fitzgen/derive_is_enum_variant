@@ -1,4 +1,7 @@
+[![Build Status](https://travis-ci.org/fitzgen/derive_is_enum_variant.svg?branch=master)](https://travis-ci.org/fitzgen/derive_is_enum_variant)
+
 # derive_is_enum_variant
+
 
 ## `derive_is_enum_variant`
 

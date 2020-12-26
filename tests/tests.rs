@@ -123,8 +123,10 @@ fn funky_variant_names() {
 /// Test providing custom predicate names.
 #[derive(is_enum_variant)]
 pub enum CustomNames {
-    #[is_enum_variant(name = "i_dont_know_why_you_say")] Goodbye,
-    #[is_enum_variant(name = "i_say")] Hello,
+    #[is_enum_variant(name = "i_dont_know_why_you_say")]
+    Goodbye,
+    #[is_enum_variant(name = "i_say")]
+    Hello,
 }
 
 #[test]
@@ -133,11 +135,11 @@ fn custom_predicate_names() {
     assert!(CustomNames::Hello.i_say());
 }
 
-
 /// This doesn't get a predicate for every variant
 #[derive(is_enum_variant)]
 pub enum Skip {
-    #[is_enum_variant(skip)] NoPredicate,
+    #[is_enum_variant(skip)]
+    NoPredicate,
     YesPredicate,
 }
 
